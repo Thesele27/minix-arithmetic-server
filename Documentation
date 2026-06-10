@@ -1,105 +1,119 @@
-Overall Functionality
+```markdown
+# Overall Functionality
+
 The program implements a simple calculation server that:
 
-Runs as a user-space service in MINIX
+- Runs as a user-space service in MINIX
+- Handles inter-process communication (IPC) via message passing
+- Provides addition and multiplication services
+- Demonstrates both user-space and kernel-space operations
 
-Handles inter-process communication (IPC) via message passing
+---
 
-Provides addition and multiplication services
+## Key Components
 
-Demonstrates both user-space and kernel-space operations
+### 1. Main Program Flow
 
-Key Components
-1. Main Program Flow
-c
+```
 main() → calc_init() → calc_main_loop()
-Initializes the server
+```
 
-Enters an infinite message handling loop
+- Initializes the server
+- Enters an infinite message handling loop
 
-2. Initialization (calc_init)
-Prints startup message
+### 2. Initialization (calc_init)
 
-Initializes the service with rs_init() (remote service initialization)
+- Prints startup message
+- Initializes the service with `rs_init()` (remote service initialization)
+- Announces service availability using `chardriver_announce()`
 
-Announces service availability using chardriver_announce()
+### 3. Message Processing Loop (calc_main_loop)
 
-3. Message Processing Loop (calc_main_loop)
-Continuously receives messages using sef_receive(ANY, m)
+- Continuously receives messages using `sef_receive(ANY, m)`
+- Dispatches messages based on `m_type` field
+- Sends replies back to the originating process
 
-Dispatches messages based on m_type field
+### 4. Supported Operations
 
-Sends replies back to the originating process
+#### Addition (calc_handle_add)
 
-4. Supported Operations
-Addition (calc_handle_add)
-Operation: Integer addition
+| Aspect | Description |
+|--------|-------------|
+| Operation | Integer addition |
+| Location | User-space calculation |
+| Input | Two integers (`m1_i1` and `m1_i2`) |
+| Output | Sum returned in `m1_i1` |
+| Logging | Prints operation details |
 
-Location: User-space calculation
+#### Multiplication (calc_handle_multiply)
 
-Input: Two integers (m1_i1 and m1_i2)
+| Aspect | Description |
+|--------|-------------|
+| Operation | Integer multiplication |
+| Location | Kernel-space via system call `sys_multiply()` |
+| Input | Two integers (`m1_i1` and `m1_i2`) |
+| Output | Product returned in `m1_i1` |
+| Error Handling | Checks system call return code |
+| Logging | Prints operation details with "(via kernel)" notation |
 
-Output: Sum returned in m1_i1
+### 5. Message Types
 
-Logging: Prints operation details
+| Type | Description |
+|------|-------------|
+| `CALC_ADD` | Request for addition operation |
+| `CALC_MULTIPLY` | Request for multiplication operation |
+| Other types | Return `EINVAL` (Invalid argument error) |
 
-Multiplication (calc_handle_multiply)
-Operation: Integer multiplication
+---
 
-Location: Kernel-space via system call sys_multiply()
+## Architecture Patterns Demonstrated
 
-Input: Two integers (m1_i1 and m1_i2)
+### Client-Server Model
 
-Output: Product returned in m1_i1
+- Server waits for requests from any client (`ANY` endpoint)
+- Processes requests and sends replies back to `m_source`
 
-Error Handling: Checks system call return code
+### Hybrid Computation
 
-Logging: Prints operation details with "(via kernel)" notation
+- **Addition**: Performed in user-space (demonstrating simple operations)
+- **Multiplication**: Delegated to kernel-space (demonstrating system calls)
 
-5. Message Types
-CALC_ADD: Request for addition operation
+### Error Handling
 
-CALC_MULTIPLY: Request for multiplication operation
+- Checks message reception errors
+- Validates system call returns for kernel operations
+- Returns appropriate status codes in `m_type` field
 
-Other types return EINVAL (Invalid argument error)
+---
 
-Architecture Patterns Demonstrated
-Client-Server Model
-Server waits for requests from any client (ANY endpoint)
+## Expected Message Structure
 
-Processes requests and sends replies back to m_source
+### Request Message
 
-Hybrid Computation
-Addition: Performed in user-space (demonstrating simple operations)
-
-Multiplication: Delegated to kernel-space (demonstrating system calls)
-
-Error Handling
-Checks message reception errors
-
-Validates system call returns for kernel operations
-
-Returns appropriate status codes in m_type field
-
-Expected Message Structure
-Request Message:
-
-c
+```c
 m.m_type = CALC_ADD or CALC_MULTIPLY
 m.m1_i1 = first operand
 m.m1_i2 = second operand
-Response Message:
+```
 
-c
+### Response Message
+
+```c
 m.m_type = OK (success) or error code
 m.m1_i1 = result value
-Usage Example
+```
+
+---
+
+## Usage Example
+
 Client processes would send messages like:
 
-c
+```c
 message m;
 m.m_type = CALC_ADD;
 m.m1_i1 = 5;
 m.m1_i2 = 3;
 sendrec(calc_server_endpoint, &m);
 // Result in m.m1_i1 = 8
+```
